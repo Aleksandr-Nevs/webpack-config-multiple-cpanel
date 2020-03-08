@@ -1,7 +1,5 @@
 /*
-
-v. 0.1.0
-
+v. 0.1.1
 */
 
 const isDevelopmentMode = process.env.NODE_ENV === "dev"
@@ -25,8 +23,6 @@ let ControlPanelConfig = {
 	*/
 	// !!! В данной папке должен лежать файл index.pug и index.js. index.pug и index.js будут переименованы в имя точки. В готовый [имя_точки].html будут автоматически импортированы [имя_точки].js и [имя_точки].css
   entryPointsPath: [
-    // [ ['home'], ['colors'] ],
-    //[ ['about'], ['block'] ],
     
   ],
 
@@ -89,7 +85,7 @@ let ControlPanelConfig = {
   [ ['home/block/fonts'], ['fonts'] ],
   */
   copyListData: [
-    
+  
   ]
 }
 
@@ -97,7 +93,7 @@ let ControlPanelConfig = {
 
 
 // -------- обработка ControlPanelConfig -------
-const optimizeProductionMode = () => {
+const createConfigOptimization = () => {
 	let config
 	if (ControlPanelConfig.chunks){
 		config = {
@@ -116,14 +112,14 @@ const optimizeProductionMode = () => {
 	return config
 }
 
-const aliasConfig = () => {
+const createAliasList = () => {
   for (key in ControlPanelConfig.alias) {
     ControlPanelConfig.alias[key]=path.resolve(__dirname,`${ControlPanelConfig.globInputPath}/${ControlPanelConfig.alias[key]}`)
   }
   return ControlPanelConfig.alias
 }
 
-const developmentConfiguration = () => {
+const createConfigDevServer = () => {
   let config = {}
   if(isDevelopmentMode)
     config = ControlPanelConfig.developmentServer
@@ -133,37 +129,36 @@ const developmentConfiguration = () => {
   return config
 }
 
-const entryPointsPath = (pluginsPath) => {
-  let config
-  if(!pluginsPath){
-    config={}
+const createEntryPointsJs = () => {
+  let config={}
     for(let i=0; i<ControlPanelConfig.entryPointsPath.length; i++) {
       config[ControlPanelConfig.entryPointsPath[i][0]]=`./${ControlPanelConfig.entryPointsPath[i][1]}/index`
     }
+  return config
+}
+  
+const createConfigPlugins = () => {
+  let config=[]
+  for(let i=0; i<ControlPanelConfig.entryPointsPath.length; i++) {
+    config[i] = new HTMLWebpackPlugin({ 
+      filename: `${ControlPanelConfig.entryPointsPath[i][0]}.html`,
+      template: path.resolve(__dirname, `${ControlPanelConfig.globInputPath}/${ControlPanelConfig.entryPointsPath[i][1]}/index.pug`),
+      chunks: [ControlPanelConfig.entryPointsPath[i][0][0]],
+      minify: {
+        collapseWhitespace: isProductionMode
+      },
+    })
   }
-  if(pluginsPath){
-    config=[]
-    for(let i=0; i<ControlPanelConfig.entryPointsPath.length; i++) {
-      config[i] = new HTMLWebpackPlugin({ 
-        filename: `${ControlPanelConfig.entryPointsPath[i][0]}.html`,
-        template: path.resolve(__dirname, `${ControlPanelConfig.globInputPath}/${ControlPanelConfig.entryPointsPath[i][1]}/index.pug`),
-        chunks: [ControlPanelConfig.entryPointsPath[i][0][0]],
-        minify: {
-          collapseWhitespace: isProductionMode
-        },
-      })
+  config.push(new CleanWebpackPlugin())
+  let arrayListCopy=[]
+  for(let i=0;i<ControlPanelConfig.copyListData.length;i++){
+    arrayListCopy[i]={
+      from: path.resolve(__dirname, `${ControlPanelConfig.globInputPath}/${ControlPanelConfig.copyListData[i][0]}`), to: path.resolve(__dirname, `${ControlPanelConfig.exitPointsPath}/${ControlPanelConfig.copyListData[i][1]}`)
     }
-    config.push(new CleanWebpackPlugin())
-    let arrayListCopy=[]
-    for(let i=0;i<ControlPanelConfig.copyListData.length;i++){
-      arrayListCopy[i]={
-        from: path.resolve(__dirname, `${ControlPanelConfig.globInputPath}/${ControlPanelConfig.copyListData[i][0]}`), to: path.resolve(__dirname, `${ControlPanelConfig.exitPointsPath}/${ControlPanelConfig.copyListData[i][1]}`)
-      }
-    }
-    config.push(new CopyWebpackPlugin(arrayListCopy))
-    config.push(new MiniCssExtractPlugin({filename: `${ControlPanelConfig.exitPointsCss}/[name].css`}))
-  }  
-    return config
+  }
+  config.push(new CopyWebpackPlugin(arrayListCopy))
+  config.push(new MiniCssExtractPlugin({filename: `${ControlPanelConfig.exitPointsCss}/[name].css`}))
+  return config
 }
 
 // ---------------------------------------------
@@ -179,7 +174,7 @@ const TerserWebpackPlugin = require('terser-webpack-plugin') // плагин и�
 
 module.exports = {
 	context: path.resolve(__dirname, ControlPanelConfig.globInputPath),
-	entry: entryPointsPath(false),
+	entry: createEntryPointsJs(),
 	output: {
 		filename: `./${ControlPanelConfig.exitPointsJs}/[name].js`,
 		path: path.resolve(__dirname,ControlPanelConfig.exitPointsPath)
@@ -187,11 +182,11 @@ module.exports = {
 	devtool: "source-map",
 	resolve: {
 		extensions: ['.js', '.json', '.png', '.jpg', '.css', '.scss','.sass','.pug'],
-    alias: aliasConfig(),
+    alias: createAliasList(),
 	},
-  optimization: optimizeProductionMode(),
-  devServer: developmentConfiguration(),
-   plugins: entryPointsPath(true),
+  optimization: createConfigOptimization(),
+  devServer: createConfigDevServer(),
+  plugins: createConfigPlugins(),
 	module: {
 		rules: [
 			{
